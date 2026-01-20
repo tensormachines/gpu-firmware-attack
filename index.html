@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tensor Machines — Detecting Silent Compromise in AI Execution</title>
+  <style>
+    :root{
+      /* Warm, “briefing doc” palette */
+      --bg:#f6f1e6;            /* warm white */
+      --panel:#fbf7ef;         /* paper */
+      --panel2:#f1eadb;        /* slightly darker paper */
+      --ink:#111827;           /* near-black */
+      --muted:#4b5563;         /* slate */
+      --faint:#6b7280;         /* lighter slate */
+      --line:rgba(17,24,39,.14);
+      --line2:rgba(17,24,39,.20);
+      --accent:#1f4aa8;        /* navy */
+      --accent2:#2f7d6d;       /* muted green */
+      --warn:#b45309;          /* amber/brown */
+      --bad:#b42318;           /* red */
+      --good:#0f766e;          /* teal */
+      --shadow: 0 18px 50px rgba(17,24,39,.14);
+      --radius:18px;
+      --radius2:24px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--ink);
+      /* Warm white paper with faint grid + soft “seal” gradients */
+      background:
+        radial-gradient(900px 700px at 18% 8%, rgba(31,74,168,.10), transparent 60%),
+        radial-gradient(900px 700px at 82% 14%, rgba(47,125,109,.10), transparent 58%),
+        radial-gradient(800px 600px at 50% 92%, rgba(180,83,9,.08), transparent 60%),
+        repeating-linear-gradient(0deg, rgba(17,24,39,.035) 0px, rgba(17,24,39,.035) 1px, transparent 1px, transparent 22px),
+        repeating-linear-gradient(90deg, rgba(17,24,39,.028) 0px, rgba(17,24,39,.028) 1px, transparent 1px, transparent 22px),
+        linear-gradient(180deg, #fffaf0 0%, var(--bg) 55%, #fffaf0 100%);
+      overflow-x:hidden;
+    }
+
+    a{color:inherit}
+
+    .wrap{
+      max-width:1200px;
+      margin:0 auto;
+      padding:28px 18px 60px;
+    }
+
+    header{
+      position:sticky;
+      top:0;
+      z-index:30;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(180deg, rgba(251,247,239,.92) 0%, rgba(246,241,230,.80) 100%);
+      border-bottom:1px solid var(--line);
+    }
+
+    .nav{
+      max-width:1200px;
+      margin:0 auto;
+      padding:14px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:260px;
+    }
+
+    .logo{
+      width:34px;
+      height:34px;
+      border-radius:10px;
+      background:
+        radial-gradient(circle at 30% 35%, rgba(31,74,168,.95), rgba(31,74,168,.06) 60%),
+        radial-gradient(circle at 70% 65%, rgba(47,125,109,.85), rgba(47,125,109,.08) 58%),
+        linear-gradient(135deg, rgba(17,24,39,.10), rgba(17,24,39,.04));
+      border:1px solid rgba(17,24,39,.16);
+      box-shadow: 0 10px 25px rgba(17,24,39,.12);
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:14px;
+      font-weight:750;
+      letter-spacing:.2px;
+    }
+
+    .brand .sub{
+      margin:0;
+      font-size:12px;
+      color:var(--muted);
+      letter-spacing:.1px;
+    }
+
+    .tabs{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:1;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .tab{
+      border:1px solid var(--line);
+      background: rgba(251,247,239,.78);
+      color:var(--muted);
+      padding:8px 10px;
+      border-radius:999px;
+      font-size:12px;
+      cursor:pointer;
+      transition: all .18s ease;
+      user-select:none;
+    }
+
+    .tab:hover{
+      transform: translateY(-1px);
+      border-color: var(--line2);
+      color:var(--ink);
+    }
+
+    .tab[aria-selected="true"]{
+      color:var(--ink);
+      border-color: rgba(31,74,168,.40);
+      background: linear-gradient(135deg, rgba(31,74,168,.10), rgba(47,125,109,.08));
+      box-shadow: 0 10px 24px rgba(17,24,39,.10);
+    }
+
+    .actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:240px;
+      justify-content:flex-end;
+    }
+
+    .pill{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(251,247,239,.78);
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .btn{
+      border:1px solid var(--line);
+      background:rgba(251,247,239,.78);
+      color:var(--ink);
+      padding:9px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-size:12px;
+      transition: all .18s ease;
+    }
+
+    .btn:hover{transform: translateY(-1px); border-color: rgba(31,74,168,.35)}
+
+    /* hero */
+    .hero{
+      padding:28px 0 18px;
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:18px;
+      align-items:stretch;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(251,247,239,.96), rgba(241,234,219,.92));
+      border:1px solid var(--line);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .card .inner{padding:18px 18px 16px}
+
+    .kicker{
+      font-size:12px;
+      color:var(--muted);
+      letter-spacing:.16px;
+      margin:0 0 8px;
+    }
+
+    .title{
+      margin:0;
+      font-size:22px;
+      line-height:1.18;
+      letter-spacing:.1px;
+    }
+
+    .lead{
+      margin:10px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      max-width:72ch;
+    }
+
+    .heroGrid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+    }
+
+    .mini{
+      padding:12px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.55);
+    }
+
+    .mini .h{
+      font-size:12px;
+      color:var(--ink);
+      margin:0 0 6px;
+      font-weight:750;
+    }
+
+    .mini .p{
+      margin:0;
+      font-size:12px;
+      line-height:1.45;
+      color:var(--muted);
+    }
+
+    .mini code{font-family:var(--mono); font-size:11px; color: rgba(17,24,39,.90)}
+
+    /* right panel */
+    .panelHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .status{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .meter{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.55);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .meterRow{display:flex; align-items:center; justify-content:space-between; gap:10px}
+    .meterLabel{font-size:12px; color:var(--muted)}
+    .meterVal{font-family:var(--mono); font-size:12px; color:var(--ink)}
+
+    .bar{
+      margin-top:10px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(17,24,39,.08);
+      overflow:hidden;
+      border:1px solid rgba(17,24,39,.10);
+    }
+
+    .bar > div{height:100%; width:0%; border-radius:999px; transition: width .25s ease}
+
+    .legend{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(251,247,239,.70);
+      color:var(--muted);
+      font-size:11px;
+    }
+
+    .dot{width:8px;height:8px;border-radius:99px; background:rgba(17,24,39,.22)}
+    .dot.good{background: rgba(15,118,110,.88)}
+    .dot.warn{background: rgba(180,83,9,.90)}
+    .dot.bad{background: rgba(180,35,24,.90)}
+
+    /* sections */
+    .section{margin-top:18px}
+
+    .sectionTitle{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:12px;
+      margin:0 0 10px;
+    }
+
+    .sectionTitle h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.2px;
+      color:var(--ink);
+      font-weight:800;
+    }
+
+    .sectionTitle p{
+      margin:0;
+      font-size:12px;
+      color:var(--muted);
+      max-width:68ch;
+      line-height:1.45;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+    }
+
+    .box{
+      background: linear-gradient(180deg, rgba(251,247,239,.96), rgba(241,234,219,.92));
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .box .inner{padding:16px}
+
+    .box h3{margin:0 0 8px; font-size:13px; font-weight:800}
+    .box p{margin:0; font-size:12.5px; line-height:1.6; color:var(--muted)}
+
+    .callout{
+      margin-top:12px;
+      border:1px dashed rgba(17,24,39,.24);
+      background:rgba(255,255,255,.45);
+      border-radius:16px;
+      padding:12px;
+    }
+
+    .callout .k{font-size:11px; color:var(--faint); margin:0 0 6px; letter-spacing:.15px}
+    .callout .v{margin:0; font-size:12px; color:var(--ink); font-family:var(--mono); line-height:1.55}
+
+    /* diagram */
+    .diagramWrap{padding:14px 14px 16px}
+
+    .diagram{
+      position:relative;
+      padding:16px;
+      border-radius:18px;
+      border:1px solid rgba(17,24,39,.14);
+      background:
+        radial-gradient(700px 420px at 20% 15%, rgba(31,74,168,.10), transparent 58%),
+        radial-gradient(600px 380px at 85% 25%, rgba(47,125,109,.10), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.25));
+      overflow:hidden;
+    }
+
+    .nodes{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:10px;
+      position:relative;
+    }
+
+    .node{
+      border-radius:18px;
+      border:1px solid var(--line);
+      background: rgba(251,247,239,.78);
+      padding:12px;
+      position:relative;
+      cursor:pointer;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+
+    .node:hover{transform: translateY(-1px); border-color: rgba(31,74,168,.28)}
+
+    .node[aria-current="true"]{
+      border-color: rgba(47,125,109,.40);
+      background: linear-gradient(135deg, rgba(47,125,109,.09), rgba(31,74,168,.06));
+    }
+
+    .nodeTop{display:flex; align-items:center; justify-content:space-between; gap:10px}
+    .nodeTitle{margin:0; font-size:12.5px; font-weight:850}
+
+    .chip{
+      font-size:10.5px;
+      padding:5px 8px;
+      border-radius:999px;
+      border:1px solid rgba(17,24,39,.18);
+      color:var(--muted);
+      background:rgba(255,255,255,.50);
+      font-family:var(--mono);
+    }
+
+    .nodeBody{margin-top:8px; display:grid; grid-template-columns: 1fr; gap:6px}
+    .bullet{display:flex; align-items:flex-start; gap:8px; color:var(--muted); font-size:12px; line-height:1.45}
+    .bullet .b{margin-top:6px; width:6px; height:6px; border-radius:99px; background:rgba(17,24,39,.25)}
+
+    .flows{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+
+    .flow{
+      border-radius:16px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.50);
+      padding:10px;
+      cursor:pointer;
+      transition: transform .18s ease, border-color .18s ease;
+    }
+
+    .flow:hover{transform: translateY(-1px); border-color: rgba(31,74,168,.28)}
+    .flow[aria-current="true"]{border-color: rgba(180,83,9,.45)}
+
+    .flow .t{margin:0 0 6px; font-size:12px; font-weight:850}
+    .flow .d{margin:0; font-size:11.5px; line-height:1.45; color:var(--muted)}
+
+    .detail{
+      margin-top:12px;
+      border-radius:18px;
+      border:1px solid rgba(17,24,39,.14);
+      background:rgba(251,247,239,.70);
+      padding:12px;
+    }
+
+    .detail h4{margin:0 0 6px; font-size:12px; font-weight:900}
+    .detail p{margin:0; font-size:12px; color:var(--muted); line-height:1.55}
+
+    /* simulator */
+    .sim{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:14px;
+    }
+
+    .controls{display:flex; flex-direction:column; gap:10px}
+
+    .control{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:rgba(255,255,255,.55);
+      padding:12px;
+    }
+
+    .control .row{display:flex; align-items:center; justify-content:space-between; gap:12px}
+    .control label{font-size:12px; color:var(--muted)}
+    .control output{font-family:var(--mono); font-size:12px; color:var(--ink)}
+
+    input[type="range"]{
+      width:100%;
+      margin-top:10px;
+      accent-color: var(--accent);
+    }
+
+    .tog{display:flex; align-items:center; gap:10px; margin-top:10px}
+
+    .switch{
+      width:44px;
+      height:26px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(17,24,39,.06);
+      position:relative;
+      cursor:pointer;
+      flex:0 0 auto;
+    }
+
+    .knob{
+      width:22px;
+      height:22px;
+      border-radius:999px;
+      position:absolute;
+      top:1px;
+      left:1px;
+      background:rgba(17,24,39,.55);
+      transition: all .18s ease;
+    }
+
+    .switch[data-on="true"]{
+      border-color: rgba(47,125,109,.45);
+      background:rgba(47,125,109,.12);
+    }
+
+    .switch[data-on="true"] .knob{left:21px; background: rgba(47,125,109,.75)}
+
+    .note{font-size:11.5px; color:var(--faint); margin:8px 0 0; line-height:1.5}
+
+    .readout{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:rgba(255,255,255,.55);
+      padding:12px;
+    }
+
+    .score{display:grid; grid-template-columns: 1fr; gap:10px}
+
+    .scoreItem{
+      border:1px solid rgba(17,24,39,.12);
+      border-radius:16px;
+      background:rgba(251,247,239,.70);
+      padding:10px;
+    }
+
+    .scoreItem .top{display:flex; align-items:center; justify-content:space-between; gap:10px}
+    .scoreItem .name{font-size:12px; font-weight:900}
+    .scoreItem .val{font-family:var(--mono); font-size:12px; color:var(--ink)}
+    .scoreItem .bar{height:9px; margin-top:8px}
+
+    .footer{
+      margin-top:22px;
+      color:var(--faint);
+      font-size:12px;
+      line-height:1.6;
+      padding:14px 2px 0;
+      border-top:1px solid var(--line);
+    }
+
+    .kbd{
+      font-family:var(--mono);
+      font-size:11px;
+      border:1px solid rgba(17,24,39,.16);
+      padding:2px 6px;
+      border-radius:8px;
+      background:rgba(255,255,255,.55);
+      color:rgba(17,24,39,.88);
+    }
+
+    .hidden{display:none !important}
+
+    @media (max-width: 980px){
+      .hero{grid-template-columns:1fr}
+      .grid{grid-template-columns:1fr}
+      .sim{grid-template-columns:1fr}
+      .actions{min-width:auto}
+      .brand{min-width:auto}
+      .tabs{justify-content:flex-start}
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *{transition:none !important; scroll-behavior:auto !important}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <div class="brand" aria-label="Tensor Machines">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Tensor Machines</h1>
+          <p class="sub">Dynamic model watermark verification + physics-layer baselining</p>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Sections">
+        <button class="tab" role="tab" data-tab="thesis" aria-selected="true">Problem Thesis</button>
+        <button class="tab" role="tab" data-tab="architecture" aria-selected="false">Architecture</button>
+        <button class="tab" role="tab" data-tab="sim" aria-selected="false">Interactive Simulator</button>
+        <button class="tab" role="tab" data-tab="limits" aria-selected="false">Limits</button>
+      </div>
+
+      <div class="actions">
+        <div class="pill" title="Keyboard shortcuts">
+          <span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span>
+        </div>
+        <button class="btn" id="reset">Reset</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="card">
+        <div class="inner">
+          <p class="kicker">Operational briefing (single-page interactive)</p>
+          <h2 class="title">When AI performance depends on a narrow GPU class, a supply-chain compromise becomes a product compromise.</h2>
+          <p class="lead">
+            This page models a realistic scenario: a competitor introduces a firmware-level backdoor into the supply chain of a targeted GPU class.
+            The victim sees slow model degradation and unexplained competitive disadvantage. The adversary extracts value through integrity loss and data leakage.
+            Tensor Machines detects compromise by combining <em>dynamic model watermark verification</em> (rotating secret canary challenges + an independent verifier in TEE/cloud)
+            with <em>physics-level execution baselines</em> that are hard to forge from inside the stack.
+          </p>
+
+          <div class="heroGrid" aria-label="Core claims">
+            <div class="mini">
+              <p class="h">Threat</p>
+              <p class="p">Firmware/driver compromise can alter computation and leak data while outputs remain plausible.</p>
+            </div>
+            <div class="mini">
+              <p class="h">Signal</p>
+              <p class="p">Real execution has stable physical signatures: <code>power</code>, <code>timing</code>, <code>thermal</code>, <code>EMI</code>.</p>
+            </div>
+            <div class="mini">
+              <p class="h">Control</p>
+              <p class="p">Continuously test the model with secret canaries, and continuously compare execution to learned physics baselines.</p>
+            </div>
+          </div>
+
+          <div class="callout" style="margin-top:14px">
+            <p class="k">Scope discipline (and yes, I get what you’re saying)</p>
+            <p class="v">We are not selling a “sensor path” product here. We reuse the approach (challenge generation, provenance discipline, verification loops) and apply it to model execution. The two pillars are: (1) dynamic model watermark verification, (2) physics-layer baselining + drift/anomaly detection.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="inner">
+          <div class="panelHead">
+            <div>
+              <p class="kicker">Live system posture</p>
+              <h2 class="title" style="font-size:16px">Risk + detection readout</h2>
+              <p class="lead" style="font-size:12.5px; margin-top:8px">
+                The simulator below drives these indicators. They are not claims of perfect security. They represent how multi-signal monitoring
+                shifts detection from a single brittle check to continuous, evidence-based inference.
+              </p>
+            </div>
+          </div>
+
+          <div class="status">
+            <div class="meter">
+              <div class="meterRow">
+                <div class="meterLabel">Adversary Control (GPU stack)</div>
+                <div class="meterVal" id="advVal">0.35</div>
+              </div>
+              <div class="bar" aria-label="adversary control"><div id="advBar"></div></div>
+              <div class="legend">
+                <span class="tag"><span class="dot warn"></span> firmware/driver exposure</span>
+                <span class="tag"><span class="dot"></span> model memory exposure</span>
+              </div>
+            </div>
+
+            <div class="meter">
+              <div class="meterRow">
+                <div class="meterLabel">Detection Confidence</div>
+                <div class="meterVal" id="detVal">0.62</div>
+              </div>
+              <div class="bar" aria-label="detection"><div id="detBar"></div></div>
+              <div class="legend">
+                <span class="tag"><span class="dot good"></span> physics baseline</span>
+                <span class="tag"><span class="dot good"></span> dynamic watermark verification</span>
+              </div>
+            </div>
+
+            <div class="meter">
+              <div class="meterRow">
+                <div class="meterLabel">Operational Impact</div>
+                <div class="meterVal" id="impVal">0.28</div>
+              </div>
+              <div class="bar" aria-label="impact"><div id="impBar"></div></div>
+              <p class="note">Impact increases with poisoning and exfiltration. It decreases when compromise is detected early.</p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: Thesis -->
+    <section class="section" data-pane="thesis">
+      <div class="sectionTitle">
+        <h2>Problem Thesis</h2>
+        <p>
+          Narrow accelerator dependence creates a high-leverage supply-chain target. The attack is valuable precisely because it can remain silent.
+        </p>
+      </div>
+
+      <div class="grid">
+        <div class="box">
+          <div class="inner">
+            <h3>1. The dependency</h3>
+            <p>
+              An AI product can become coupled to a narrow GPU class because of kernel optimizations, memory behavior, or tooling.
+              This coupling concentrates risk. A compromise of that class affects model integrity, model confidentiality, and product reliability
+              across all deployments that share the same accelerator lineage.
+            </p>
+            <div class="callout">
+              <p class="k">Operational symptom</p>
+              <p class="v">Competitor velocity increases while your model quality drifts downward without a clear software regression.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="inner">
+            <h3>2. The attack surface</h3>
+            <p>
+              Firmware and driver layers sit below most application telemetry. A backdoor here can modify kernels, perturb numerics,
+              introduce selective data leakage, or exfiltrate proprietary artifacts. Outputs can remain plausible enough to evade naive tests.
+              The attacker’s advantage is persistence and invisibility.
+            </p>
+            <div class="callout">
+              <p class="k">Why naive checks fail</p>
+              <p class="v">A compromised stack can behave correctly on known tests while diverging on real workloads.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="inner">
+            <h3>3. The detection problem</h3>
+            <p>
+              Any verifier that runs entirely inside the compromised boundary is not a verifier—it is modifiable code.
+              Detection must rely on signals that can be validated outside the attacker’s control.
+              This is a continuous verification problem, not a one-time certification problem.
+            </p>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="inner">
+            <h3>4. Tensor Machines scope (applied to models)</h3>
+            <p>
+              Tensor Machines addresses this problem through two capabilities only.
+              First, <strong>dynamic model watermark verification</strong>: a verifier (TEE, measured host, or cloud control plane) issues secret, rotating canary challenges and checks whether responses match the authentic signature distribution.
+              Second, <strong>physics-layer baselining</strong>: per-device execution fingerprints (power/timing/thermal/EMI) are learned and monitored for drift consistent with tampering, degradation, or adversarial interference.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: Architecture -->
+    <section class="section hidden" data-pane="architecture">
+      <div class="sectionTitle">
+        <h2>Architecture</h2>
+        <p>
+          Trust boundaries are explicit. The GPU cluster is treated as potentially compromised. Verification happens outside, using independent signals.
+        </p>
+      </div>
+
+      <div class="grid">
+        <div class="box">
+          <div class="inner diagramWrap">
+            <div class="diagram" aria-label="Architecture diagram">
+              <div class="nodes">
+                <div class="node" data-node="control" aria-current="true" role="button" tabindex="0">
+                  <div class="nodeTop">
+                    <p class="nodeTitle">AI Product Company (Trusted Control Plane)</p>
+                    <span class="chip">trust anchor</span>
+                  </div>
+                  <div class="nodeBody">
+                    <div class="bullet"><span class="b"></span><span>Model signing keys and versioned artifacts (provenance discipline)</span></div>
+                    <div class="bullet"><span class="b"></span><span>Canary challenge generator (secret + rotating)</span></div>
+                    <div class="bullet"><span class="b"></span><span>Drift/anomaly monitor and policy enforcement</span></div>
+                  </div>
+                </div>
+
+                <div class="node" data-node="gpu" aria-current="false" role="button" tabindex="0">
+                  <div class="nodeTop">
+                    <p class="nodeTitle">GPU Cluster (Potentially Compromised Data Plane)</p>
+                    <span class="chip" style="border-color: rgba(180,35,24,.45); color: rgba(180,35,24,.85)">hostile boundary</span>
+                  </div>
+                  <div class="nodeBody">
+                    <div class="bullet"><span class="b"></span><span>Host + driver + runtime</span></div>
+                    <div class="bullet"><span class="b"></span><span>GPU firmware and scheduling</span></div>
+                    <div class="bullet"><span class="b"></span><span>Weights, activations, and training data in memory</span></div>
+                  </div>
+                </div>
+
+                <div class="node" data-node="verifier" aria-current="false" role="button" tabindex="0">
+                  <div class="nodeTop">
+                    <p class="nodeTitle">Independent Verifier (Outside Attacker Control)</p>
+                    <span class="chip" style="border-color: rgba(47,125,109,.45); color: rgba(47,125,109,.85)">independent evidence</span>
+                  </div>
+                  <div class="nodeBody">
+                    <div class="bullet"><span class="b"></span><span>Verifier placement: TEE, measured host, or cloud auditing plane</span></div>
+                    <div class="bullet"><span class="b"></span><span>Dynamic watermark verifier: canary generation + signature tests</span></div>
+                    <div class="bullet"><span class="b"></span><span>Physics monitors: power/EMI/thermal/timing tied to expected execution</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flows" aria-label="Flows">
+                <div class="flow" data-flow="control" aria-current="true" role="button" tabindex="0">
+                  <p class="t">Control + Canary Probes</p>
+                  <p class="d">Secret challenges and policies from the trusted plane to the cluster.</p>
+                </div>
+                <div class="flow" data-flow="telemetry" aria-current="false" role="button" tabindex="0">
+                  <p class="t">Telemetry + Physical Evidence</p>
+                  <p class="d">Outputs and physics signatures returned to the verifier.</p>
+                </div>
+              </div>
+
+              <div class="detail" id="archDetail">
+                <h4>What is being verified</h4>
+                <p>
+                  Tensor Machines does not rely on firmware-resident truth.
+                  It verifies the model via secret, rotating canary challenges (dynamic watermark verification) and validates that execution
+                  remains consistent with per-device physics baselines. Divergence becomes evidence of tampering or degradation.
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="inner">
+            <h3>Tensor Machines detection loop</h3>
+            <p>
+              The system learns a baseline for each device and workload class, then continuously compares live execution against that baseline.
+              Baselines can include multi-modal side channels such as power draw trajectories, timing distributions, thermal responses,
+              and electromagnetic characteristics. In parallel, an independent verifier issues rotating canary challenges and checks whether
+              model responses match expected signature distributions.
+            </p>
+            <div class="callout">
+              <p class="k">Practical output</p>
+              <p class="v">A device-level trust score plus hypotheses: benign variability, drift, anomaly, or likely compromise.</p>
+            </div>
+            <div class="callout">
+              <p class="k">What Tensor Machines does not claim</p>
+              <p class="v">Perfect prevention of exfiltration. The defensible claim is early detection + isolation using independent evidence.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB: Simulator -->
+    <section class="section hidden" data-pane="sim">
+      <div class="sectionTitle">
+        <h2>Interactive Simulator</h2>
+        <p>
+          Evidence accumulates across two channels: dynamic watermark verification (canaries) and physics baselines.
+          Adjust attacker strength and monitoring quality; watch detection confidence and impact move.
+        </p>
+      </div>
+
+      <div class="grid">
+        <div class="box">
+          <div class="inner sim">
+            <div class="controls">
+              <div class="control">
+                <div class="row">
+                  <label for="adv">Adversary control of GPU stack</label>
+                  <output id="advOut">0.35</output>
+                </div>
+                <input id="adv" type="range" min="0" max="1" step="0.01" value="0.35" />
+                <p class="note">Represents how deeply firmware/driver layers are compromised.</p>
+              </div>
+
+              <div class="control">
+                <div class="row">
+                  <label for="poi">Poisoning pressure (integrity)</label>
+                  <output id="poiOut">0.20</output>
+                </div>
+                <input id="poi" type="range" min="0" max="1" step="0.01" value="0.20" />
+                <p class="note">Higher values mean more aggressive or more frequent execution modification.</p>
+              </div>
+
+              <div class="control">
+                <div class="row">
+                  <label for="exf">Exfiltration pressure (confidentiality)</label>
+                  <output id="exfOut">0.25</output>
+                </div>
+                <input id="exf" type="range" min="0" max="1" step="0.01" value="0.25" />
+                <p class="note">Higher values mean more frequent or higher-bandwidth leakage behavior.</p>
+              </div>
+
+              <div class="control">
+                <div class="row">
+                  <label>Dynamic model watermark verification</label>
+                  <span class="chip" id="wmChip">ON</span>
+                </div>
+                <div class="tog">
+                  <div class="switch" id="wm" data-on="true" role="switch" aria-checked="true" tabindex="0"><div class="knob"></div></div>
+                  <div>
+                    <div style="font-size:12px; color:var(--muted)">Issues secret, rotating canary challenges and validates response signatures.</div>
+                    <div class="note">Improves detection by making selective evasion expensive and brittle.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="control">
+                <div class="row">
+                  <label for="phy">Physics baseline quality</label>
+                  <output id="phyOut">0.75</output>
+                </div>
+                <input id="phy" type="range" min="0" max="1" step="0.01" value="0.75" />
+                <p class="note">Represents coverage and quality of side-channel sensing and baselining models.</p>
+              </div>
+
+              <div class="control">
+                <div class="row">
+                  <label for="noise">Environmental variability</label>
+                  <output id="noiOut">0.20</output>
+                </div>
+                <input id="noise" type="range" min="0" max="1" step="0.01" value="0.20" />
+                <p class="note">Higher values mean more background noise, making detection harder.</p>
+              </div>
+
+              <button class="btn" id="run" style="width:100%; margin-top:2px">Run detection step</button>
+              <p class="note">Each step simulates a monitoring interval (e.g., 1 minute). Values update deterministically.</p>
+            </div>
+
+            <div class="readout" aria-label="Readout">
+              <div class="score">
+                <div class="scoreItem">
+                  <div class="top"><div class="name">Physics drift evidence</div><div class="val" id="ePhy">0.00</div></div>
+                  <div class="bar"><div id="ePhyBar"></div></div>
+                </div>
+                <div class="scoreItem">
+                  <div class="top"><div class="name">Dynamic watermark evidence</div><div class="val" id="eWm">0.00</div></div>
+                  <div class="bar"><div id="eWmBar"></div></div>
+                </div>
+                <div class="scoreItem">
+                  <div class="top"><div class="name">Overall detection confidence</div><div class="val" id="eDet">0.62</div></div>
+                  <div class="bar"><div id="eDetBar"></div></div>
+                </div>
+                <div class="scoreItem">
+                  <div class="top"><div class="name">Estimated operational impact</div><div class="val" id="eImp">0.28</div></div>
+                  <div class="bar"><div id="eImpBar"></div></div>
+                </div>
+              </div>
+
+              <div class="detail" style="margin-top:12px" id="simNarr">
+                <h4>Interpretation</h4>
+                <p>
+                  The verifier gains confidence when independent signals agree: physics baselines drift in ways consistent with compromised execution,
+                  and canary-response signatures deviate from the authentic model beyond what background variability explains.
+                </p>
+              </div>
+
+              <div class="callout" style="margin-top:12px">
+                <p class="k">Key claim</p>
+                <p class="v">Verification is external: detection comes from independent evidence, not from the compromised stack describing itself.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="inner">
+            <h3>What the simulator is modeling</h3>
+            <p>
+              The simulator models a monitoring loop that learns per-device baselines and flags anomalies.
+              Poisoning and exfiltration increase operational impact. Physics baselines provide an execution-level signal that becomes harder to fake as sensing coverage improves.
+              Dynamic watermark verification reduces ambiguity by continuously probing whether the model still behaves like the authentic distribution.
+            </p>
+            <div class="callout">
+              <p class="k">Assumptions</p>
+              <p class="v">(1) physics baselines exist per device/workload, (2) canary probes remain secret and rotate, (3) the verifier is independent (TEE/measured host/cloud).</p>
+            </div>
+            <div class="callout">
+              <p class="k">Non-goal</p>
+              <p class="v">This is not a proof that attackers cannot adapt. It shows how evidence accumulation improves detection and reduces dwell time.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: Limits -->
+    <section class="section hidden" data-pane="limits">
+      <div class="sectionTitle">
+        <h2>Limits and honest boundaries</h2>
+        <p>
+          What remains hard even with strong monitoring. This keeps the story technically credible.
+        </p>
+      </div>
+
+      <div class="grid">
+        <div class="box">
+          <div class="inner">
+            <h3>1. Exfiltration is not fully preventable by monitoring</h3>
+            <p>
+              A sufficiently privileged implant can leak data. This approach reduces time-to-detect by observing execution drift and
+              identifying anomalies consistent with unauthorized computation. The defensible claim is early detection and isolation, not perfect prevention.
+            </p>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="inner">
+            <h3>2. False positives must be controlled</h3>
+            <p>
+              Real hardware varies with temperature, load, power delivery, and scheduling. Physics baselines must be conditioned on context and
+              calibrated per device class. Dynamic canary verification helps separate intentional tampering from benign drift and background variability.
+            </p>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="inner">
+            <h3>3. Attackers can attempt selective evasion</h3>
+            <p>
+              Attackers may behave correctly on some probes. This is why canaries must be secret and rotating, and why physics evidence matters.
+              The goal is not a single decisive test, but sustained consistency under monitoring.
+            </p>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="inner">
+            <h3>4. Scope discipline is a strength</h3>
+            <p>
+              Tensor Machines does not need to own the entire stack. It provides independent integrity signals: dynamic model watermark verification and
+              physics-layer drift detection. These signals integrate into existing security programs as a distinct line of evidence.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="footer">
+        <div>
+          This single-page narrative is intentionally constrained to Tensor Machines’ two pillars for this problem: dynamic model watermark verification (canary challenges + independent verifier) and physics-layer baselining.
+          The core claim is that these capabilities produce independent evidence of compromise even when the GPU stack is treated as potentially hostile.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Single-page, deterministic simulation. No external dependencies.
+
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+    const panes = Array.from(document.querySelectorAll('[data-pane]'));
+    const setTab = (name) => {
+      tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+      panes.forEach(p => p.classList.toggle('hidden', p.dataset.pane !== name));
+      window.scrollTo({top: 0, behavior: 'smooth'});
+    };
+
+    tabs.forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+
+    // Keyboard shortcuts: 1..4
+    window.addEventListener('keydown', (e) => {
+      const map = { '1':'thesis', '2':'architecture', '3':'sim', '4':'limits' };
+      if(map[e.key]) setTab(map[e.key]);
+    });
+
+    // Architecture diagram interaction
+    const nodeEls = Array.from(document.querySelectorAll('.node'));
+    const flowEls = Array.from(document.querySelectorAll('.flow'));
+    const archDetail = document.getElementById('archDetail');
+
+    const nodeCopy = {
+      control: {
+        h: 'What the trusted plane controls',
+        p: 'It controls policies, verification schedules, and enrollment of devices into baselining. It does not assume the GPU stack is honest. It assumes only that it can observe external evidence and enforce isolation decisions.'
+      },
+      gpu: {
+        h: 'What is treated as potentially hostile',
+        p: 'Firmware, drivers, and runtime can be modified. Device memory can be read or altered. A monitor that runs entirely here can be patched, disabled, or selectively evaded.'
+      },
+      verifier: {
+        h: 'Why an independent verifier matters',
+        p: 'Detection depends on signals that are harder to forge: physics-layer execution fingerprints plus dynamic canary-based watermark verification run outside the hostile boundary (TEE/measured host/cloud). The verifier aggregates evidence and flags drift, anomalies, and likely compromise.'
+      }
+    };
+
+    const flowCopy = {
+      control: {
+        h: 'Control and verification stimuli',
+        p: 'Policies and secret canary probes are issued from outside the hostile boundary. The main property is unpredictability over time, which reduces selective evasion.'
+      },
+      telemetry: {
+        h: 'Telemetry and physical evidence',
+        p: 'Outputs and logs are informative but insufficient alone. Physics-layer evidence provides an additional channel: power, timing, thermal and EMI signatures that shift under unauthorized execution.'
+      }
+    };
+
+    function setCurrent(list, el){
+      list.forEach(x => x.setAttribute('aria-current','false'));
+      el.setAttribute('aria-current','true');
+    }
+
+    nodeEls.forEach(n => {
+      const act = () => {
+        setCurrent(nodeEls, n);
+        const k = n.dataset.node;
+        archDetail.querySelector('h4').textContent = nodeCopy[k].h;
+        archDetail.querySelector('p').textContent = nodeCopy[k].p;
+      };
+      n.addEventListener('click', act);
+      n.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); act(); } });
+    });
+
+    flowEls.forEach(f => {
+      const act = () => {
+        setCurrent(flowEls, f);
+        const k = f.dataset.flow;
+        archDetail.querySelector('h4').textContent = flowCopy[k].h;
+        archDetail.querySelector('p').textContent = flowCopy[k].p;
+      };
+      f.addEventListener('click', act);
+      f.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); act(); } });
+    });
+
+    // Simulator controls
+    const adv = document.getElementById('adv');
+    const poi = document.getElementById('poi');
+    const exf = document.getElementById('exf');
+    const phy = document.getElementById('phy');
+    const noise = document.getElementById('noise');
+
+    const advOut = document.getElementById('advOut');
+    const poiOut = document.getElementById('poiOut');
+    const exfOut = document.getElementById('exfOut');
+    const phyOut = document.getElementById('phyOut');
+    const noiOut = document.getElementById('noiOut');
+
+    const wm = document.getElementById('wm');
+    const wmChip = document.getElementById('wmChip');
+
+    const run = document.getElementById('run');
+    const reset = document.getElementById('reset');
+
+    // Global top panel meters
+    const advVal = document.getElementById('advVal');
+    const detVal = document.getElementById('detVal');
+    const impVal = document.getElementById('impVal');
+
+    const advBar = document.getElementById('advBar');
+    const detBar = document.getElementById('detBar');
+    const impBar = document.getElementById('impBar');
+
+    // sim readout
+    const ePhy = document.getElementById('ePhy');
+    const eWm = document.getElementById('eWm');
+    const eDet = document.getElementById('eDet');
+    const eImp = document.getElementById('eImp');
+
+    const ePhyBar = document.getElementById('ePhyBar');
+    const eWmBar = document.getElementById('eWmBar');
+    const eDetBar = document.getElementById('eDetBar');
+    const eImpBar = document.getElementById('eImpBar');
+
+    const simNarr = document.getElementById('simNarr');
+
+    // Deterministic state
+    const state = {
+      step: 0,
+      e_phy: 0.00,
+      e_wm: 0.00,
+      det: 0.62,
+      imp: 0.28
+    };
+
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+    function fmt(x){ return (Math.round(x*100)/100).toFixed(2); }
+
+    function setBar(el, x, kind){
+      el.style.width = (clamp01(x)*100).toFixed(1) + '%';
+      if(kind==='adv') el.style.background = 'linear-gradient(90deg, rgba(180,83,9,.92), rgba(180,35,24,.85))';
+      if(kind==='det') el.style.background = 'linear-gradient(90deg, rgba(31,74,168,.90), rgba(47,125,109,.85))';
+      if(kind==='imp') el.style.background = 'linear-gradient(90deg, rgba(180,35,24,.88), rgba(180,83,9,.90))';
+      if(kind==='phy') el.style.background = 'linear-gradient(90deg, rgba(31,74,168,.88), rgba(47,125,109,.85))';
+      if(kind==='wm')  el.style.background = 'linear-gradient(90deg, rgba(47,125,109,.88), rgba(15,118,110,.82))';
+    }
+
+    function updateHeaderMeters(){
+      const a = parseFloat(adv.value);
+      advVal.textContent = fmt(a);
+      detVal.textContent = fmt(state.det);
+      impVal.textContent = fmt(state.imp);
+      setBar(advBar, a, 'adv');
+      setBar(detBar, state.det, 'det');
+      setBar(impBar, state.imp, 'imp');
+    }
+
+    function updateOutputs(){
+      advOut.textContent = fmt(parseFloat(adv.value));
+      poiOut.textContent = fmt(parseFloat(poi.value));
+      exfOut.textContent = fmt(parseFloat(exf.value));
+      phyOut.textContent = fmt(parseFloat(phy.value));
+      noiOut.textContent = fmt(parseFloat(noise.value));
+
+      ePhy.textContent = fmt(state.e_phy);
+      eWm.textContent  = fmt(state.e_wm);
+      eDet.textContent = fmt(state.det);
+      eImp.textContent = fmt(state.imp);
+
+      setBar(ePhyBar, state.e_phy, 'phy');
+      setBar(eWmBar,  state.e_wm,  'wm');
+      setBar(eDetBar, state.det, 'det');
+      setBar(eImpBar, state.imp, 'imp');
+
+      updateHeaderMeters();
+    }
+
+    function toggleSwitch(){
+      const on = wm.dataset.on === 'true';
+      wm.dataset.on = String(!on);
+      wm.setAttribute('aria-checked', String(!on));
+      wmChip.textContent = (!on) ? 'ON' : 'OFF';
+      wmChip.style.borderColor = (!on) ? 'rgba(47,125,109,.45)' : 'rgba(17,24,39,.18)';
+      wmChip.style.color = (!on) ? 'rgba(47,125,109,.85)' : 'var(--muted)';
+      runStep(false);
+    }
+
+    wm.addEventListener('click', toggleSwitch);
+    wm.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); toggleSwitch(); } });
+
+    // Core idea: evidence increases with attack pressure and sensing quality,
+    // but decreases with environmental variability.
+    function runStep(increment=true){
+      const A = parseFloat(adv.value);
+      const P = parseFloat(poi.value);
+      const X = parseFloat(exf.value);
+      const Q = parseFloat(phy.value);
+      const N = parseFloat(noise.value);
+      const WM = (wm.dataset.on === 'true') ? 1 : 0;
+
+      if(increment) state.step += 1;
+
+      // Physics evidence
+      const driftPressure = clamp01(0.55*P + 0.35*X + 0.10*A);
+      const obsGain = clamp01(0.15 + 0.85*Q);
+      const noisePenalty = clamp01(0.10 + 0.70*N);
+
+      const ePhyInc = clamp01((A*driftPressure*obsGain) - 0.35*noisePenalty);
+      state.e_phy = clamp01(state.e_phy + 0.12*ePhyInc);
+
+      // Dynamic watermark evidence (canary-response deviation)
+      // In this simplified model, higher attacker pressure yields more deviation,
+      // but only if watermark verification is enabled.
+      const canaryPressure = clamp01(0.60*P + 0.25*X + 0.15*A);
+      const wmObs = clamp01(WM * (0.30 + 0.55*canaryPressure - 0.35*N));
+      state.e_wm = clamp01(state.e_wm + 0.10*(wmObs - state.e_wm));
+
+      // Detection confidence: combine independent signals.
+      const base = 0.28;
+      const phyTerm = 0.52 * state.e_phy;
+      const wmTerm  = 0.30 * state.e_wm;
+      const noiseTerm = 0.35 * N;
+      const evadePenalty = 0.12 * (A * (1 - Q));
+
+      state.det = clamp01(base + phyTerm + wmTerm - noiseTerm - evadePenalty);
+
+      // Operational impact grows with attack pressures and adversary control,
+      // but is reduced by earlier detection.
+      const rawImpact = clamp01(0.10 + 0.55*P + 0.45*X);
+      const controlAmp = clamp01(0.55 + 0.45*A);
+      const detectMitigation = clamp01(0.15 + 0.55*state.det);
+      state.imp = clamp01(rawImpact*controlAmp*(1 - 0.55*detectMitigation));
+
+      // Narrative
+      const verdict = (state.det > 0.75) ? 'Likely compromise. Isolation and forensic workflow are justified.'
+                    : (state.det > 0.55) ? 'Elevated risk. Increase monitoring cadence and isolate suspicious devices.'
+                    : 'Inconclusive. Evidence does not exceed expected variability.';
+
+      const why = (WM ? 'Canary challenges are secret and rotating, reducing selective evasion.' : 'Dynamic watermark verification is off, increasing ambiguity.');
+      const phyWhy = (Q > 0.70) ? 'Physics baselines have high coverage and are sensitive to drift.'
+                    : (Q > 0.45) ? 'Physics baselines exist but may miss subtle drift.'
+                    : 'Physics baselines are weak; subtle implants can hide longer.';
+
+      simNarr.querySelector('h4').textContent = 'Interpretation (step ' + state.step + ')';
+      simNarr.querySelector('p').textContent = verdict + ' ' + why + ' ' + phyWhy;
+
+      updateOutputs();
+    }
+
+    [adv, poi, exf, phy, noise].forEach(r => r.addEventListener('input', () => runStep(false)));
+    run.addEventListener('click', () => runStep(true));
+
+    function resetAll(){
+      adv.value = 0.35;
+      poi.value = 0.20;
+      exf.value = 0.25;
+      phy.value = 0.75;
+      noise.value = 0.20;
+      wm.dataset.on = 'true';
+      wm.setAttribute('aria-checked','true');
+      wmChip.textContent = 'ON';
+      wmChip.style.borderColor = 'rgba(47,125,109,.45)';
+      wmChip.style.color = 'rgba(47,125,109,.85)';
+
+      state.step = 0;
+      state.e_phy = 0.00;
+      state.e_wm  = 0.00;
+      state.det = 0.62;
+      state.imp = 0.28;
+
+      simNarr.querySelector('h4').textContent = 'Interpretation';
+      simNarr.querySelector('p').textContent = 'The verifier gains confidence when independent signals agree: physics baselines drift in ways consistent with compromised execution, and canary-response signatures deviate from the authentic model beyond what background variability explains.';
+
+      updateOutputs();
+    }
+
+    reset.addEventListener('click', resetAll);
+
+    // Initial paint
+    updateOutputs();
+
+  </script>
+</body>
+</html>
